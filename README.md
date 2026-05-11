@@ -1,42 +1,45 @@
 # codex-plugins
 
-Codex plugins by Masafumi Ito.
+A small marketplace of Codex plugins maintained by Masafumi Ito. Each plugin under `plugins/` is independently installable through Codex's plugin workflow.
 
-## Plugins
+## Install
 
-| Plugin | Description |
-| --- | --- |
-| [`tmux-claude-chat`](plugins/tmux-claude-chat) | Send a prompt from Codex to Claude Code running in another tmux pane and capture the answer through Claude's Stop hook. |
-
-## Prerequisites
-
-- macOS or Linux
-- `tmux`
-- Codex CLI
-- Claude Code CLI
-- `jq`
-- `uuidgen`, `/proc/sys/kernel/random/uuid`, or `python3`
-
-## Marketplace
-
-This repository includes a Codex marketplace manifest at `.agents/plugins/marketplace.json`. Add this repository as a local or GitHub-backed Codex plugin marketplace, then install `tmux-claude-chat`.
-
-From the Codex CLI:
+Add this marketplace once:
 
 ```bash
 codex plugin marketplace add itouuuuuuuuu/codex-plugins
 ```
 
-Or, from inside an interactive Codex session:
+Then open Codex's plugin UI and install whichever plugins you want from `itouuuuuuuuu-codex-plugins`.
 
-1. Start Codex with `codex`.
-2. Run `/plugin`.
-3. Choose the marketplace option.
-4. Add `itouuuuuuuuu/codex-plugins`.
-5. Install and enable `tmux-claude-chat`.
+```text
+codex
+/plugin
+```
 
-The plugin also requires a Claude-side Stop hook. See the plugin README for the copy, settings, verify, update, and uninstall steps.
+Then restart Codex if prompted.
+
+## Plugins
+
+| Plugin | Description | Docs |
+|---|---|---|
+| [`tmux-claude-chat`](plugins/tmux-claude-chat/) | Send a prompt from Codex to Claude Code running in another tmux pane and capture the answer through Claude's `Stop` hook. | [README](plugins/tmux-claude-chat/README.md) |
+
+## Repository layout
+
+```text
+.
+├── .agents/plugins/
+│   └── marketplace.json          # multi-plugin index for Codex
+├── plugins/
+│   └── <plugin-name>/
+│       ├── .codex-plugin/plugin.json
+│       ├── skills/               # plugin-provided skills
+│       ├── README.md             # plugin-specific docs
+│       └── ...                   # additional assets per plugin
+└── README.md
+```
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE) © Masafumi Ito
