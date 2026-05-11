@@ -8,9 +8,17 @@ The skill spans two CLIs: the skill runs in Codex, while the completion signal c
 
 1. Codex creates `REQ=<uuid>` and `/tmp/claude-chat-$UID/pending-<REQ>`.
 2. Codex sends `[CLAUDE_CHAT_REQ:<uuid>]` to the target Claude pane with the prompt.
-3. When Claude finishes the turn, `tmux-claude-chat-stop.sh` reads the transcript, finds the newest marker whose pending file exists, and writes `/tmp/claude-chat-$UID/done-<REQ>.json`.
+3. When Claude finishes the turn, `tmux-claude-chat-stop.sh` reads the latest user message from the transcript, finds the marker, and writes `/tmp/claude-chat-$UID/done-<REQ>.json` only if the matching pending file exists.
 4. Codex waits for that file and reports `last_assistant_message`.
 5. Permission dialogs are detected by a low-frequency pane watcher; the skill never approves or cancels them.
+
+Design guarantees (encoded in the hook + skill):
+
+- **Pending-file gate**: stale markers in older transcript turns can never overwrite a fresh request.
+- **Latest-user-message-only extraction**: assistant quotes, tool output, and earlier requests are ignored.
+- **Strict UUID regex**: `[0-9a-fA-F]{8}-{4}-{4}-{4}-{12}` only.
+- **Per-user `$RUNDIR` (mode 700, ownership-checked, symlink-rejected)**: prompts and answers stay private to the running user.
+- **`stop_hook_active=true` no-op**: blocking Stop hooks do not trigger spurious done-files.
 
 ## Prerequisites
 
@@ -106,7 +114,7 @@ Use `$HOME` for the hook path. Do not rely on `~` expansion inside JSON.
 
 ### 4. Restart Claude Code
 
-Restart any Claude Code pane that should be targetable.
+Restart any Claude Code pane that should be targetable. Claude reads hook settings at session boot, so a pane that was already running before this setup may silently time out until it is restarted.
 
 ### 5. Verify
 
@@ -170,6 +178,7 @@ Run the verify commands. Common causes:
 - The hook entry was not appended to `~/.claude/settings.json`.
 - The hook script is not executable.
 - Claude Code was not restarted after hook installation.
+- The request exceeded the default 5-minute timeout. Once the timeout fires, the skill removes the pending sentinel to prevent stale-marker replay, so Claude finishing later will not produce a done-file. Recover the answer from pane scrollback, or re-invoke with a longer budget.
 
 ### The skill reports a permission dialog
 
@@ -183,7 +192,7 @@ Inspect the hook log:
 tail /tmp/claude-chat-$UID/stop-hook.log
 ```
 
-For very large Claude transcripts, the hook scans the last 5000 JSONL lines by default to stay within Claude's hook timeout. Set `CLAUDE_CHAT_TRANSCRIPT_TAIL_LINES` in the hook environment if your turns can exceed that.
+For very large Claude transcripts, the hook scans the latest user message found in the last 5000 JSONL lines by default to stay within Claude's hook timeout. Set `CLAUDE_CHAT_TRANSCRIPT_TAIL_LINES` in the hook environment if your turns can exceed that.
 
 ## License
 

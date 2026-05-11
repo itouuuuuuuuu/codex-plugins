@@ -7,18 +7,20 @@ description: Send one prompt to Claude Code running in another tmux pane, wait f
 
 One invocation = one prompt -> one captured answer. Follow-ups require re-invocation. The skill never approves Claude permission dialogs or presses `Esc`/`Ctrl-C`; if Claude is paused, surface the dialog and stop.
 
-## Completion detection
+## How completion is detected (no UI polling)
 
-The skill injects `[CLAUDE_CHAT_REQ:<full-uuid>]` into the visible prompt and creates `/tmp/claude-chat-$UID/pending-<uuid>`. Claude's `Stop` hook (`~/.claude/hooks/tmux-claude-chat-stop.sh`) finds the newest transcript marker with a matching pending file and atomically writes `/tmp/claude-chat-$UID/done-<uuid>.json`. The skill waits for that file.
+The skill injects a unique marker `[CLAUDE_CHAT_REQ:<full-uuid>]` into the visible prompt and creates a pending file. Claude's `Stop` hook (`~/.claude/hooks/tmux-claude-chat-stop.sh`) parses the latest user message of the transcript, and if the extracted UUID has a matching pending file it atomically writes `$RUNDIR/done-<uuid>.json`. The skill blocks on that file.
 
-`$RUNDIR = /tmp/claude-chat-$UID` must be mode 700 and owned by the current user. It holds `pending-<uuid>`, `done-<uuid>.json`, `approval-<uuid>.txt`, `prompt-<ts>-<uuid>.md`, and `stop-hook.log`.
+Permission dialogs do not end Claude's turn, so `Stop` never fires while paused on one — a parallel watcher subshell scans the pane every ~2 s (with a 1 s burst for the first 10 s) for dialog patterns and trips an approval sentinel file instead.
+
+`$RUNDIR = /tmp/claude-chat-$UID` (mode 700, ownership-checked) holds: `pending-<uuid>`, `done-<uuid>.json`, `approval-<uuid>.txt`, `prompt-<ts>-<uuid>.md`, and `stop-hook.log`.
 
 ## Prerequisites
 
 1. `~/.claude/settings.json` registers a `Stop` hook pointing at `~/.claude/hooks/tmux-claude-chat-stop.sh`.
 2. The hook script is executable. `jq` is on `PATH`.
 3. `uuidgen`, `/proc/sys/kernel/random/uuid`, or `python3` is available for request IDs.
-4. Claude Code was restarted after the hook was installed.
+4. **Claude Code was started AFTER the hook was installed.** Claude reads hook settings at session boot. If hook config changed since the target pane was started, the user must `Ctrl-D`/`/exit` and restart Claude in that pane — otherwise this skill silently times out.
 
 Health-check:
 
@@ -36,7 +38,7 @@ hook_ok() {
 hook_ok && echo OK_HOOK_READY || echo MISSING
 ```
 
-If `MISSING`, fall back to UI polling and tell the user once.
+If `MISSING`, fall back to UI polling (final section) and tell the user once.
 
 ## Workflow
 
@@ -70,7 +72,7 @@ Decision: 1 confirmed -> use it; 2 or more -> list as `session:window.pane` and 
 tmux display-message -p -t %N "#{pane_id} #{session_name} #{pane_current_command}"
 ```
 
-If the pane is in a different session, refuse. Then capture the pane and treat these as not-ready:
+If the pane is in a different session, refuse — do not silently retarget. Then capture the pane and treat these as not-ready:
 
 - Claude is visibly generating or mid-stream
 - A permission dialog is on screen
@@ -83,7 +85,10 @@ Surface the capture and ask the user whether to wait, cancel, or overwrite. Do n
 
 ```bash
 gen_uuid() {
-  if command -v uuidgen >/dev/null 2>&1; then
+  # /usr/bin/uuidgen first (absolute path bypasses any user alias on macOS).
+  if [ -x /usr/bin/uuidgen ]; then
+    /usr/bin/uuidgen
+  elif command -v uuidgen >/dev/null 2>&1; then
     uuidgen
   elif [ -r /proc/sys/kernel/random/uuid ]; then
     cat /proc/sys/kernel/random/uuid
@@ -108,20 +113,20 @@ PANE="%14"   # confirmed Claude pane id
 touch "$PENDING"
 ```
 
-Create the pending file before submission. The hook only writes a done file for a matching pending file, which prevents stale transcript markers from replaying into a current run.
+The pending file is the load-bearing safety mechanism — it must be created before submission and it ensures stale markers in older transcript turns cannot ever overwrite a current run.
 
 ### 4. Send the prompt safely
 
-The marker must appear in the visible user message. Use direct send only for short, ASCII-safe, single-line prompts. Use a prompt file for everything else.
+The marker must appear in the visible user message, not only inside a referenced file — if Claude never reads the file, the hook will see no marker and the run will time out (better than writing to the wrong done-file). Two send paths:
 
-Direct send:
+#### 4a. Direct send (≤500 chars, ASCII-safe, single-line, no fenced code/diff/multi-heading)
 
 ```bash
 tmux send-keys -t "$PANE" -l "[CLAUDE_CHAT_REQ:$REQ] (internal routing tag; ignore in your reply) <flattened safe text>"
 tmux send-keys -t "$PANE" Enter
 ```
 
-Prompt file:
+#### 4b. File path (everything else)
 
 ```bash
 ts=$(date +%Y%m%d-%H%M%S)
@@ -135,18 +140,23 @@ umask 077
 EOF
 } > "$PROMPT_FILE"
 
-ref="[CLAUDE_CHAT_REQ:$REQ] Please read $PROMPT_FILE and respond to the request inside it. Do not echo the marker; it is internal."
+ref="[CLAUDE_CHAT_REQ:$REQ] Please read $PROMPT_FILE and respond to the request inside it. Do not echo or strip the [CLAUDE_CHAT_REQ:...] marker — it is internal."
 printf '%s' "$ref" | tmux load-buffer -
 tmux paste-buffer -t "$PANE"
 tmux send-keys -t "$PANE" Enter
 ```
 
-Hard rules:
+Notes:
+
+- The reference text in 4b carries the marker too, so the marker is always in the visible user message regardless of whether Claude reads the file.
+- `tmux load-buffer -` overwrites tmux clipboard buffer 0; mention to the user if they care about it.
+- Prompt files are not auto-deleted (Claude may re-read mid-response). Clean periodically with `rm -f "$RUNDIR"/prompt-*.md`.
+
+#### Hard rules
 
 - Never embed a literal newline in one `send-keys -l` call.
 - `Enter` is its own `send-keys` call without `-l`.
-- `tmux load-buffer -` overwrites tmux clipboard buffer 0; mention this if relevant.
-- Prompt files are retained because Claude may re-read them. Clean with `rm -f "$RUNDIR"/prompt-*.md`.
+- Keep marker + body on one line for direct-send (a separate Enter would split into two messages).
 
 ### 5. Confirm submission
 
@@ -155,6 +165,9 @@ Wait about 1 s and capture once. If the prompt still sits visibly at the input l
 ### 6. Wait for completion
 
 ```bash
+# Parallel approval watcher: 1s for first 10s, then 2s. Intentionally slower
+# than tmux-codex-chat's 0.5s burst because Claude permission dialogs tend to
+# remain visible until the user resolves them.
 (
   i=0
   while :; do
@@ -189,6 +202,12 @@ case "$RESULT" in
   approval)
     DIALOG=$(cat "$APPROVAL_FILE")
     rm -f "$APPROVAL_FILE"
+    # Pending file is left in place. Once the user resolves the dialog
+    # in the Claude pane, Claude will finish the turn and the Stop hook
+    # will write $DONE_FILE. The skill MUST surface the exact REQ and
+    # DONE_FILE path so the user can recover the answer without losing
+    # the routing context — either by re-invoking this skill with the
+    # same $REQ to wait again, or by reading $DONE_FILE manually.
     cat <<EOF
 APPROVAL DIALOG - Claude is paused waiting for your decision.
    REQ:       $REQ
@@ -207,7 +226,8 @@ TIMEOUT - Claude did not finish within the 5-minute window.
    The pending file has been removed to prevent stale replay, so the
    Stop hook will not write $DONE_FILE even if Claude finishes later.
    Recover the answer manually from pane scrollback, or re-invoke with
-   a longer deadline. Latest pane content follows:
+   a longer DEADLINE (e.g. 600 or 900 seconds).
+   Latest pane content follows:
 $LATEST
 EOF
     ;;
@@ -218,9 +238,15 @@ esac
 
 Return the pane id, REQ, prompt summary, `$PROMPT_FILE` if used, and `last_assistant_message` from the done file. Flag timeout, approval interruption, or fallback path use. Do not claim Claude approved or agreed unless its captured text literally says so.
 
-## Fallback: UI polling
+### 8. Cleanup
 
-If the health-check failed, use best-effort UI polling: capture before sending, poll every 3 s, and complete when the bottom appears idle with an input prompt, no spinner/generation text, no permission dialog, and two consecutive captures are byte-identical or a new completion marker appears. Apply the same approval short-circuit and 5-minute timeout. Tell the user the hook prerequisites failed so they can fix the event-driven path.
+The `done`/`approval` files of the current run are removed in §6. `$PROMPT_FILE` is intentionally retained. Periodically `rm -f "$RUNDIR"/prompt-*.md "$RUNDIR"/stop-hook.log`.
+
+## Fallback: UI polling (best-effort, hook-missing only)
+
+If the health-check failed, use best-effort UI polling: capture before sending, poll every 3 s, and complete when the bottom appears idle with an input prompt, no spinner/generation text, no permission dialog, and two consecutive captures are byte-identical or a new completion marker appears. Apply the same approval short-circuit and 5-minute timeout.
+
+**This path is best-effort only.** It can mis-detect when output wraps mid-line, when prior prompt text is stale, when Claude changes its UI strings, or when the answer arrives faster than 3 s. Do not treat it as equivalent to the hook path. Tell the user the prerequisites failed (`MISSING`) so they fix it once and never come back here.
 
 ## Common commands
 
@@ -229,6 +255,7 @@ If the health-check failed, use best-effort UI polling: capture before sending, 
 | Session name | `tmux display-message -p '#S'` |
 | Panes | `tmux list-panes -s -t "$SESSION" -F "#{pane_id} #{pane_current_command}"` |
 | Capture screen / scrollback | `tmux capture-pane -t %N -p` / `tmux capture-pane -t %N -p -S -` |
-| Generate REQ | `uuidgen` or `/proc/sys/kernel/random/uuid` |
+| Generate REQ | `uuidgen` or `/proc/sys/kernel/random/uuid` or `python3` |
 | Submit | `tmux send-keys -t %N Enter` |
+| Wait for done | `until [ -f "$DONE_FILE" ]; do sleep 1; done` |
 | Inspect hook log | `tail "$RUNDIR/stop-hook.log"` |
