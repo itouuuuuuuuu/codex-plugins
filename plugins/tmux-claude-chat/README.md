@@ -26,6 +26,20 @@ The skill spans two CLIs: the skill runs in Codex, while the completion signal c
 
 Install from the marketplace or local plugin source for `itouuuuuuuuu/codex-plugins`, then enable `tmux-claude-chat`.
 
+From the Codex CLI:
+
+```bash
+codex plugin marketplace add itouuuuuuuuu/codex-plugins
+```
+
+Or, from inside an interactive Codex session:
+
+1. Start Codex with `codex`.
+2. Run `/plugin`.
+3. Choose the marketplace option.
+4. Add `itouuuuuuuuu/codex-plugins`.
+5. Install and enable `tmux-claude-chat`.
+
 ### 2. Copy the Claude Stop hook
 
 Resolve the plugin cache path dynamically:
