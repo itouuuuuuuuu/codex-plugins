@@ -1,6 +1,6 @@
 {
   "name": "tmux-claude-chat",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Send a prompt to Claude Code running in another tmux pane and capture the answer via Claude's Stop hook.",
   "author": {
     "name": "Masafumi Ito",
