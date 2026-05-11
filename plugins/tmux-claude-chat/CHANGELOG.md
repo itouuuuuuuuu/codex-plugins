@@ -5,6 +5,7 @@
 ### Skill (`SKILL.md`)
 
 - Clarified that completion detection is hook-driven and keyed by the latest user message plus a pending-file gate.
+- `gen_uuid()` now consults `/usr/bin/uuidgen` first (mirrors `tmux-codex-chat` 1.0.1 for alias-proofing on macOS).
 - Documented the intentional approval-watcher polling cadence difference from the mirror `tmux-codex-chat` skill.
 - Added explicit direct-send limits, recovery notes for approval/timeout paths, a cleanup section, and a common wait command.
 - Expanded fallback UI polling warnings so it is treated as best-effort only.

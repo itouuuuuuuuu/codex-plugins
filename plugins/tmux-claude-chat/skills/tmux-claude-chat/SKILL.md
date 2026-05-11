@@ -85,7 +85,10 @@ Surface the capture and ask the user whether to wait, cancel, or overwrite. Do n
 
 ```bash
 gen_uuid() {
-  if command -v uuidgen >/dev/null 2>&1; then
+  # /usr/bin/uuidgen first (absolute path bypasses any user alias on macOS).
+  if [ -x /usr/bin/uuidgen ]; then
+    /usr/bin/uuidgen
+  elif command -v uuidgen >/dev/null 2>&1; then
     uuidgen
   elif [ -r /proc/sys/kernel/random/uuid ]; then
     cat /proc/sys/kernel/random/uuid
