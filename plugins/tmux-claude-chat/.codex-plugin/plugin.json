@@ -1,0 +1,29 @@
+{
+  "name": "tmux-claude-chat",
+  "version": "1.0.0",
+  "description": "Send a prompt to Claude Code running in another tmux pane and capture the answer via Claude's Stop hook.",
+  "author": {
+    "name": "Masafumi Ito",
+    "email": "ito.masafumi@classmethod.jp",
+    "url": "https://github.com/itouuuuuuuuu"
+  },
+  "homepage": "https://github.com/itouuuuuuuuu/codex-plugins/tree/main/plugins/tmux-claude-chat",
+  "repository": "https://github.com/itouuuuuuuuu/codex-plugins",
+  "license": "MIT",
+  "keywords": ["claude", "tmux", "hook", "skill", "anthropic"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "tmux Claude Chat",
+    "shortDescription": "Ask Claude Code in another tmux pane and capture the answer.",
+    "longDescription": "Send one prompt from Codex to Claude Code running in another tmux pane, wait for Claude's Stop hook to write the answer, and report it back without relying on UI polling when the hook is installed.",
+    "developerName": "Masafumi Ito",
+    "category": "Productivity",
+    "capabilities": ["Interactive"],
+    "websiteURL": "https://github.com/itouuuuuuuuu/codex-plugins/tree/main/plugins/tmux-claude-chat",
+    "defaultPrompt": [
+      "Ask Claude to review my current changes.",
+      "Ask the Claude pane for a second opinion.",
+      "Have Claude critique this design."
+    ]
+  }
+}

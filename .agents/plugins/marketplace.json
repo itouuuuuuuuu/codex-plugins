@@ -1,0 +1,20 @@
+{
+  "name": "itouuuuuuuuu-codex-plugins",
+  "interface": {
+    "displayName": "itouuuuuuuuu Codex Plugins"
+  },
+  "plugins": [
+    {
+      "name": "tmux-claude-chat",
+      "source": {
+        "source": "local",
+        "path": "./plugins/tmux-claude-chat"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}
