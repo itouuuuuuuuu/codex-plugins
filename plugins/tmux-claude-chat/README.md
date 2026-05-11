@@ -77,7 +77,7 @@ If the file does not exist, create it with:
         "hooks": [
           {
             "type": "command",
-            "command": "/Users/<you>/.claude/hooks/tmux-claude-chat-stop.sh",
+            "command": "$HOME/.claude/hooks/tmux-claude-chat-stop.sh",
             "timeout": 10
           }
         ]
@@ -95,14 +95,14 @@ If `hooks.Stop` already exists, append one wrapper object:
   "hooks": [
     {
       "type": "command",
-      "command": "/Users/<you>/.claude/hooks/tmux-claude-chat-stop.sh",
+      "command": "$HOME/.claude/hooks/tmux-claude-chat-stop.sh",
       "timeout": 10
     }
   ]
 }
 ```
 
-Replace `/Users/<you>` with your home directory. Do not rely on `~` expansion inside JSON.
+Use `$HOME` for the hook path. Do not rely on `~` expansion inside JSON.
 
 ### 4. Restart Claude Code
 
