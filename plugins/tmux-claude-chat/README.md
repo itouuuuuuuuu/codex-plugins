@@ -42,16 +42,17 @@ Or, from inside an interactive Codex session:
 
 ### 2. Copy the Claude Stop hook
 
-Resolve the plugin cache path dynamically:
+Copy the hook script from this repository into Claude's hooks directory:
 
 ```bash
-HOOK_SRC=$(find ~/.codex/plugins/cache -path '*/tmux-claude-chat/*/claude-hook/tmux-claude-chat-stop.sh' -print -quit)
 mkdir -p ~/.claude/hooks
-cp "$HOOK_SRC" ~/.claude/hooks/tmux-claude-chat-stop.sh
+curl -fsSL \
+  https://raw.githubusercontent.com/itouuuuuuuuu/codex-plugins/main/plugins/tmux-claude-chat/claude-hook/tmux-claude-chat-stop.sh \
+  -o ~/.claude/hooks/tmux-claude-chat-stop.sh
 chmod +x ~/.claude/hooks/tmux-claude-chat-stop.sh
 ```
 
-For a manual checkout:
+If you already have a local checkout of this repository, you can copy the same file locally instead:
 
 ```bash
 mkdir -p ~/.claude/hooks
@@ -61,14 +62,9 @@ chmod +x ~/.claude/hooks/tmux-claude-chat-stop.sh
 
 ### 3. Register the Stop hook in `~/.claude/settings.json`
 
-Do not replace the file. Preserve existing top-level keys and existing hook entries; append only the new `Stop` matcher.
+Open `~/.claude/settings.json` in your editor and add a `Stop` hook entry for the copied script.
 
-Before editing:
-
-```bash
-[ -f ~/.claude/settings.json ] && cp -p ~/.claude/settings.json ~/.claude/settings.json.bak.$(date +%Y%m%d-%H%M%S)
-[ -f ~/.claude/settings.json ] && jq -e 'type == "object"' ~/.claude/settings.json >/dev/null && echo "settings.json: OK"
-```
+Do not replace the file if it already exists. Preserve existing top-level keys and existing hook entries; append only the new `Stop` matcher.
 
 If the file does not exist, create it with:
 
@@ -77,6 +73,7 @@ If the file does not exist, create it with:
   "hooks": {
     "Stop": [
       {
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
@@ -94,6 +91,7 @@ If `hooks.Stop` already exists, append one wrapper object:
 
 ```json
 {
+  "matcher": "",
   "hooks": [
     {
       "type": "command",
@@ -138,11 +136,12 @@ For long or multi-line prompts, the skill uses `tmux load-buffer -` before pasti
 
 ## Update
 
-If the bundled hook changes, re-copy it after updating the Codex plugin:
+If the hook changes, download the latest version again:
 
 ```bash
-HOOK_SRC=$(find ~/.codex/plugins/cache -path '*/tmux-claude-chat/*/claude-hook/tmux-claude-chat-stop.sh' -print -quit)
-cp "$HOOK_SRC" ~/.claude/hooks/tmux-claude-chat-stop.sh
+curl -fsSL \
+  https://raw.githubusercontent.com/itouuuuuuuuu/codex-plugins/main/plugins/tmux-claude-chat/claude-hook/tmux-claude-chat-stop.sh \
+  -o ~/.claude/hooks/tmux-claude-chat-stop.sh
 chmod +x ~/.claude/hooks/tmux-claude-chat-stop.sh
 ```
 
