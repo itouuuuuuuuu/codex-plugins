@@ -21,6 +21,20 @@ Codex plugins by Masafumi Ito.
 
 This repository includes a Codex marketplace manifest at `.agents/plugins/marketplace.json`. Add this repository as a local or GitHub-backed Codex plugin marketplace, then install `tmux-claude-chat`.
 
+From the Codex CLI:
+
+```bash
+codex plugin marketplace add itouuuuuuuuu/codex-plugins
+```
+
+Or, from inside an interactive Codex session:
+
+1. Start Codex with `codex`.
+2. Run `/plugin`.
+3. Choose the marketplace option.
+4. Add `itouuuuuuuuu/codex-plugins`.
+5. Install and enable `tmux-claude-chat`.
+
 The plugin also requires a Claude-side Stop hook. See the plugin README for the copy, settings, verify, update, and uninstall steps.
 
 ## License
