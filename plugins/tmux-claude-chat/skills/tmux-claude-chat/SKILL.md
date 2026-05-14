@@ -1,6 +1,6 @@
 ---
 name: tmux-claude-chat
-description: Send one prompt to Claude Code running in another tmux pane, wait for Claude's answer, and report it back. Use when the user wants to consult Claude, ask Claude for a review or second opinion, or route a question to a Claude Code CLI in a separate tmux pane, especially phrases like "Claude に聞いて", "ask Claude", "consult Claude", "別 pane の Claude にレビューさせて", or "%14 の Claude に <X>". Only panes in the current tmux session are considered. If multiple Claude panes are found or none can be confirmed, ask which pane id to target before sending.
+description: Send one prompt to Claude Code running in another tmux pane, wait for Claude's answer, and report it back. Use when the user wants to consult Claude, ask Claude for a review or second opinion, or route a question to a Claude Code CLI in a separate tmux pane, especially phrases like "Claude に聞いて", "ask Claude", "consult Claude", "別 pane の Claude にレビューさせて", or "%14 の Claude に <X>". Only panes in the current tmux session are considered. If multiple Claude panes are found in that same session or none can be confirmed there, ask which pane id to target before sending.
 ---
 
 # tmux-claude-chat
@@ -49,7 +49,7 @@ If `MISSING`, fall back to UI polling (final section) and tell the user once.
 SESSION=$(tmux display-message -p '#S')
 ```
 
-All pane operations target `$SESSION`. Other tmux sessions are out of scope.
+All pane discovery and operations target `$SESSION`. Other tmux sessions are out of scope unless the user explicitly provides a pane id in another session.
 
 ### 1. Discover & confirm Claude pane
 
@@ -64,7 +64,7 @@ A pane is a candidate when `pane_current_command` is `claude` (high) or `node` (
 - Permission dialog text such as `Do you want to proceed?`, `Allow`, `Deny`, or `Yes`
 - Startup or help text containing `Claude Code`
 
-Decision: 1 confirmed -> use it; 2 or more -> list as `session:window.pane` and ask; 0 -> ask. Never guess.
+Decision within the current session: 1 confirmed -> use it; 2 or more -> list as `session:window.pane` and ask; 0 -> ask. Never guess or broaden discovery to other sessions.
 
 ### 2. Validate target pane
 
